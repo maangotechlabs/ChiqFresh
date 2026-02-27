@@ -1,204 +1,246 @@
-// script.js
+(function () {
+  function initScrollSections(mainSelector = '#main-content', options = {}) {
+    const main = document.querySelector(mainSelector) || document.querySelector('.main-content');
+    if (!main) return;
 
-document.addEventListener('DOMContentLoaded', () => {
-    const mainContent = document.querySelector('.main-content');
-    const heroSection = document.querySelector('#hero-section');
-    const productsSection = document.querySelector('#products-section');
-    const whyUsSection = document.querySelector('#why-us-section');
-    const purchaseSection = document.querySelector('#purchase-section');
-    
-    if (!mainContent || !heroSection || !productsSection || !whyUsSection || !purchaseSection) {
-        console.error("One or more main sections not found.");
+    const hero = main.querySelector('[data-section="hero"]') || main.querySelector('.hero') || main.children[0];
+    const products = main.querySelector('[data-section="products"]') || main.querySelector('.products') || main.children[1];
+    if (!hero || !products) return;
+
+    const duration = options.duration || 550;
+    let active = false; // main-content currently mostly in viewport
+    let view = 'hero';
+    let animating = false;
+    let touchStartY = null;
+
+    // Inject necessary CSS so the sections are positioned and animate
+    const styleId = 'scroll-sections-injected-styles';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+${mainSelector}, .main-content { position: relative; overflow: hidden; }
+${mainSelector} > * { box-sizing: border-box; }
+${mainSelector} > [data-section], ${mainSelector} > .hero, ${mainSelector} > .products, ${mainSelector} > .hero-section, ${mainSelector} > .products-section { position: absolute; top: 0; left: 0; width: 100%; height: 100vh; }
+${mainSelector} > .products, ${mainSelector} > .products-section, ${mainSelector} > [data-section="products"] { top: 100%; transform: translateY(0); }
+${mainSelector}.show-products > .products, ${mainSelector}.show-products > .products-section, ${mainSelector}.show-products > [data-section="products"] { transform: translateY(-100%); }
+${mainSelector} > .hero, ${mainSelector} > .hero-section, ${mainSelector} > [data-section="hero"] { transform: translateY(0); }
+`;
+      document.head.appendChild(style);
+    }
+
+    // Apply transition styles inline (helps when elements already have transitions)
+    [hero, products].forEach((el) => {
+      el.style.transition = `transform ${duration}ms cubic-bezier(.2,.9,.2,1)`;
+      el.style.willChange = 'transform';
+      el.style.backfaceVisibility = 'hidden';
+    });
+
+    // Intersection observer to detect when main-content is mostly in viewport
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          active = entry.intersectionRatio > 0.9;
+        });
+      },
+      { threshold: [0, 0.5, 0.9, 1] }
+    );
+    io.observe(main);
+
+    // observe "why-us" section and toggle visibility class when it enters viewport
+    const whyEl = document.querySelector('.why-us');
+    const purchaseEl = document.querySelector('.purchase');
+    const contactEl = document.querySelector('.contact');
+    const navBar = document.querySelector('.navbar');
+
+    // observe the main section itself to toggle transparency on the navbar
+    if (navBar && main) {
+      const navObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            // when main-content is mostly out of view (scrolled past)
+            if (e.intersectionRatio < 0.1) {
+              navBar.classList.add('add-trans');
+            } else {
+              navBar.classList.remove('add-trans');
+            }
+          });
+        },
+        { threshold: [0, 0.1, 0.9, 1] }
+      );
+      navObserver.observe(main);
+    }
+
+    if (whyEl) {
+      const whyObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.intersectionRatio > 0.4) {
+              whyEl.classList.add('is-visible');
+            }
+          });
+        },
+        { threshold: [0, 0.5] }
+      );
+      whyObserver.observe(whyEl);
+    }
+
+    if (purchaseEl) {
+      const purchaseObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.intersectionRatio > 0.4) {
+              purchaseEl.classList.add('is-visible');
+            }
+          });
+        },
+        { threshold: [0, 0.5] }
+      );
+      purchaseObserver.observe(purchaseEl);
+    }
+
+    if (contactEl) {
+      const contactObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.intersectionRatio > 0.4) {
+              contactEl.classList.add('is-visible');
+            }
+          });
+        },
+        { threshold: [0, 0.5] }
+      );
+      contactObserver.observe(contactEl);
+    }
+
+    function showProducts() {
+      if (animating || view === 'products') return;
+      animating = true;
+      main.classList.add('show-products');
+      products.classList.add('chickenpop')
+      setTimeout(() => {
+        view = 'products';
+        animating = false;
+      }, duration + 20);
+      
+      setTimeout(() => {
+        products.classList.add('products-scattered')
+        setTimeout(() => {
+            products.classList.add('lines-drawn')
+        }, duration + 5)
+      }, duration + 5);
+    //   products.classList.add('products-scattered')
+    }
+
+    function hideProducts() {
+      if (animating || view === 'hero') return;
+      animating = true;
+      main.classList.remove('show-products');
+      products.classList.remove('chickenpop', 'products-scattered', 'lines-drawn')
+      setTimeout(() => {
+        view = 'hero';
+        animating = false;
+      }, duration + 20);
+    }
+
+    function onWheel(e) {
+      if (!active) return; // only intercept when main-content is on screen
+      if (animating) {
+        e.preventDefault();
         return;
+      }
+
+      // Disable scrolling completely when in hero section
+      if (view === 'hero') {
+        e.preventDefault();
+        
+        const delta = e.deltaY;
+        // Small threshold to avoid accidental triggers from small trackpad jitter
+        if (Math.abs(delta) < 15) return;
+        
+        if (delta > 0) {
+          showProducts();
+        }
+      } else if (view === 'products') {
+        const delta = e.deltaY;
+        // Small threshold to avoid accidental triggers from small trackpad jitter
+        if (Math.abs(delta) < 15) return;
+        
+        if (delta < 0) {
+          // backward scroll inside products -> hide products
+          e.preventDefault();
+          hideProducts();
+        }
+      }
     }
 
-    // ===== Auto-scroll snap between hero and products =====
-    let isAutoScrolling = false;
+    // Touch handling for mobile/touch devices
+    function onTouchStart(e) {
+      if (!active) return;
+      touchStartY = e.touches ? e.touches[0].clientY : e.clientY;
+    }
 
-    const heroStart = heroSection.offsetTop;
-    const productsStart = productsSection.offsetTop;
-    const whyUsStart = whyUsSection.offsetTop;
-    const mainContainerEnd = mainContent.offsetTop + mainContent.offsetHeight;
+    function onTouchEnd(e) {
+      if (!active || touchStartY === null) return;
+      const endY = (e.changedTouches && e.changedTouches[0].clientY) || (e.clientY || touchStartY);
+      const delta = touchStartY - endY;
+      touchStartY = null;
+      if (Math.abs(delta) < 30) return;
 
-    const triggerSnap = (targetScroll) => {
-        if (isAutoScrolling) return;
-        isAutoScrolling = true;
-        window.scrollTo({
-            top: targetScroll,
-            behavior: 'smooth'
-        });
-        setTimeout(() => { isAutoScrolling = false; }, 900);
-    };
-
-    // Handle wheel events (mouse wheel and trackpad)
-    // Prevent default scrolling in main container and auto-snap instead
-    window.addEventListener('wheel', (e) => {
-        if (isAutoScrolling) return;
-
-        const currentScroll = window.scrollY;
-        const scrollDir = e.deltaY > 0 ? 'down' : 'up';
-
-        // Only prevent default and auto-snap within main container
-        if (currentScroll >= heroStart && currentScroll < mainContainerEnd) {
-            e.preventDefault();
-
-            if (scrollDir === 'down') {
-                // Scroll down: snap to next section
-                if (currentScroll < productsStart) {
-                    // In hero -> snap to products
-                    triggerSnap(productsStart);
-                } else if (currentScroll >= productsStart && currentScroll < mainContainerEnd) {
-                    // In products -> snap to why-us (outside main container)
-                    triggerSnap(whyUsStart);
-                }
-            } else if (scrollDir === 'up') {
-                // Scroll up: snap to previous section
-                if (currentScroll >= productsStart && currentScroll < whyUsStart) {
-                    // In products -> snap to hero
-                    triggerSnap(heroStart);
-                } else if (currentScroll >= mainContainerEnd) {
-                    // Below main container or in why-us -> snap to products
-                    triggerSnap(productsStart);
-                }
-            }
+      // Disable scrolling completely when in hero section
+      if (view === 'hero') {
+        e.preventDefault();
+        if (delta > 0) {
+          showProducts();
         }
-    }, { passive: false });
-
-    // Handle touch scrolling for mobile
-    let touchStartY = 0;
-    let touchEndY = 0;
-
-    window.addEventListener('touchstart', (e) => {
-        touchStartY = e.changedTouches[0].screenY;
-    }, { passive: true });
-
-    window.addEventListener('touchend', (e) => {
-        if (isAutoScrolling) return;
-
-        touchEndY = e.changedTouches[0].screenY;
-        const scrollDir = touchStartY > touchEndY ? 'down' : 'up';
-        const currentScroll = window.scrollY;
-
-        // Only auto-snap within main container
-        if (currentScroll >= heroStart && currentScroll < mainContainerEnd) {
-            if (scrollDir === 'down') {
-                // Swipe down: snap to next section
-                if (currentScroll < productsStart) {
-                    // In hero -> snap to products
-                    triggerSnap(productsStart);
-                } else if (currentScroll >= productsStart && currentScroll < mainContainerEnd) {
-                    // In products -> snap to why-us (outside main container)
-                    triggerSnap(whyUsStart);
-                }
-            } else if (scrollDir === 'up') {
-                // Swipe up: snap to previous section
-                if (currentScroll >= productsStart && currentScroll < whyUsStart) {
-                    // In products -> snap to hero
-                    triggerSnap(heroStart);
-                } else if (currentScroll >= mainContainerEnd) {
-                    // Below main container -> snap to products
-                    triggerSnap(productsStart);
-                }
-            }
+      } else if (view === 'products') {
+        e.preventDefault();
+        if (delta < 0) {
+          hideProducts();
         }
-    }, { passive: true });
+      }
+    }
 
-    // IntersectionObserver for class-based animations
-    const observerOptions = {
-        root: null,
-        rootMargin: '0px',
-        threshold: [0.3, 0.5, 0.7]
+    // prevent wheel default only when we decide to intercept
+    window.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('touchstart', onTouchStart, { passive: false });
+    window.addEventListener('touchend', onTouchEnd, { passive: false });
+
+    // Optional: expose controls for external usage
+    return {
+      showProducts,
+      hideProducts,
+      isActive: () => active,
+      getView: () => view,
+      destroy() {
+        io.disconnect();
+        window.removeEventListener('wheel', onWheel);
+        window.removeEventListener('touchstart', onTouchStart);
+        window.removeEventListener('touchend', onTouchEnd);
+      },
     };
+  }
 
-    const handleIntersect = (entries, observer) => {
-        entries.forEach(entry => {
-            if (entry.target === productsSection) {
-                if (entry.isIntersecting && entry.intersectionRatio > 0.3) {
-                    mainContent.classList.add('scrolled-1');
-                    mainContent.classList.remove('scrolled-2');
-                    productsSection.classList.add('chickenpop');
-                    
-                    setTimeout(() => {
-                        productsSection.classList.add('products-scattered');
-                        setTimeout(() => {
-                            productsSection.classList.add('lines-drawn');
-                        }, 700);
-                    }, 500);
-
-                } else if (!entry.isIntersecting || entry.intersectionRatio < 0.3) {
-                    if (!mainContent.classList.contains('scrolled-2')) {
-                        mainContent.classList.remove('scrolled-1');
-                        productsSection.classList.remove('products-scattered', 'lines-drawn', 'chickenpop');
-                    }
-                }
-            } else if (entry.target === whyUsSection) {
-                if (entry.isIntersecting && entry.intersectionRatio > 0.3) {
-                    mainContent.classList.add('scrolled-2');
-                    mainContent.classList.remove('scrolled-1');
-                    whyUsSection.classList.add('is-visible');
-                } else if (!entry.isIntersecting || entry.intersectionRatio < 0.3) {
-                    whyUsSection.classList.remove('is-visible');
-                    
-                    if (productsSection.getBoundingClientRect().top < window.innerHeight * 0.5) {
-                        mainContent.classList.add('scrolled-1');
-                        mainContent.classList.remove('scrolled-2');
-                    } else {
-                        mainContent.classList.remove('scrolled-2');
-                    }
-                }
-            }
-        });
-    };
-
-    const observer = new IntersectionObserver(handleIntersect, observerOptions);
-
-    observer.observe(productsSection);
-    observer.observe(whyUsSection);
-
-    // Hamburger menu functionality with improved touch support
-    const hamburgerMenu = document.querySelector('.hamburger-menu');
-    const navToggle = document.querySelector('#nav-toggle');
+  // add mobile navigation toggle behavior
+  function initMobileNav() {
+    const hamburger = document.querySelector('.hamburger-menu');
     const mobileMenu = document.querySelector('.mobile-menu');
-    const body = document.body;
+    if (!hamburger || !mobileMenu) return;
 
-    if (hamburgerMenu && mobileMenu && body) {
-        const toggleMenu = () => {
-            hamburgerMenu.classList.toggle('active');
-            mobileMenu.classList.toggle('active');
-            body.classList.toggle('no-scroll');
-            
-            if (navToggle) {
-                navToggle.checked = !navToggle.checked;
-            }
-        };
+    hamburger.addEventListener('click', () => {
+      hamburger.classList.toggle('active');
+      mobileMenu.classList.toggle('active');
+    });
+  }
 
-        hamburgerMenu.addEventListener('click', toggleMenu);
-        hamburgerMenu.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            toggleMenu();
-        });
-
-        const navLinks = mobileMenu.querySelectorAll('a');
-        navLinks.forEach(link => {
-            link.addEventListener('click', () => {
-                hamburgerMenu.classList.remove('active');
-                mobileMenu.classList.remove('active');
-                body.classList.remove('no-scroll');
-                if (navToggle) {
-                    navToggle.checked = false;
-                }
-            });
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && mobileMenu.classList.contains('active')) {
-                hamburgerMenu.classList.remove('active');
-                mobileMenu.classList.remove('active');
-                body.classList.remove('no-scroll');
-                if (navToggle) {
-                    navToggle.checked = false;
-                }
-            }
-        });
-    }
-});
+  // Auto-init on DOMContentLoaded using default selector
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initScrollSections('#main-content');
+      initMobileNav();
+    });
+  } else {
+    initScrollSections('#main-content');
+    initMobileNav();
+  }
+})();
