@@ -1780,6 +1780,25 @@ nav {
 
 }
 
+/* Ensure purchase elements are visible on small screens even before animation triggers */
+@media (max-width: 1000px) {
+    .purchase-head > *,
+    .purchase-cards .pcards,
+    .purchase-info .info-item,
+    .purchase-actions,
+    .why-us-top > *,
+    .why-us-cards .card,
+    .meat-img,
+    .contact-head > *,
+    .contact-info .info-item,
+    .contact-actions .contact-btn,
+    .contact-group {
+        opacity: 1 !important;
+        transform: none !important;
+        animation: none !important;
+    }
+}
+
 @media (max-width: 768px) {
 
     .purchase {
